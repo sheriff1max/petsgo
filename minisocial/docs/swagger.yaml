@@ -1,0 +1,191 @@
+basePath: /api/v1
+definitions:
+  domain.Post:
+    properties:
+      author_id:
+        type: string
+      author_name:
+        type: string
+      content:
+        type: string
+      id:
+        type: string
+      likes_count:
+        type: integer
+    type: object
+  domain.User:
+    properties:
+      id:
+        type: string
+      username:
+        type: string
+    type: object
+  handler.PostRequest:
+    properties:
+      content:
+        example: Hello world!
+        type: string
+    type: object
+  handler.RegisterRequest:
+    properties:
+      username:
+        example: john_doe
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Мини соц-сеть на Go
+  title: MiniSocial API
+  version: "1.0"
+paths:
+  /feed:
+    get:
+      description: Возвращает список постов от пользователей, на которых подписан
+        текущий пользователь
+      parameters:
+      - description: ID пользователя
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Post'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Получить ленту новостей
+      tags:
+      - feed
+  /posts:
+    post:
+      consumes:
+      - application/json
+      description: Добавляет пост в ленту от имени текущего пользователя
+      parameters:
+      - description: Текст поста
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.PostRequest'
+      - description: ID пользователя
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Post'
+        "400":
+          description: Bad request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+      summary: Создать новый пост
+      tags:
+      - posts
+  /posts/{id}/like:
+    post:
+      description: Увеличивает счетчик лайков у указанного поста
+      parameters:
+      - description: ID поста
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ID пользователя
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+      summary: Поставить лайк посту
+      tags:
+      - likes
+  /users:
+    post:
+      consumes:
+      - application/json
+      description: Создает нового пользователя по имени
+      parameters:
+      - description: Информация о пользователе
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.User'
+        "400":
+          description: Bad request
+          schema:
+            type: string
+      summary: Регистрация нового пользователя
+      tags:
+      - users
+  /users/{id}/follow:
+    post:
+      description: Добавляет текущего пользователя в подписчики к указанному ID
+      parameters:
+      - description: ID пользователя, на которого подписываемся
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ID пользователя
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad request or self-follow
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+      summary: Подписаться на пользователя
+      tags:
+      - follows
+schemes:
+- http
+swagger: "2.0"
