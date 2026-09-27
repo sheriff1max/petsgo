@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_DB=shorturls
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - SERVER_ADDR=:8080
+      - STORAGE_TYPE=postgres
+      - POSTGRES_DNS=postgres://user:pass@db:5432/shortener?sslmode=disable
+
+volumes:
+  pgdata:
