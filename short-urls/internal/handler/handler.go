@@ -2,9 +2,9 @@ package handler
 
 import (
 	"errors"
-	"io"
 	"net/http"
 	"strings"
+	"encoding/json"
 
 	"short-urls/internal/service"
 	"short-urls/internal/storage"
@@ -27,15 +27,15 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 func (h *Handler) HandlerGenerateShortUrl(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
-	bytes, err := io.ReadAll(r.Body)
-	if err != nil {
+
+	var req RequestOriginalUrl
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
 
-	originalUrl := strings.TrimSpace(string(bytes))
+	originalUrl := strings.TrimSpace(req.OriginalUrl)
 	if originalUrl == "" {
 		http.Error(w, "Empty url", http.StatusBadRequest)
 		return
@@ -48,7 +48,12 @@ func (h *Handler) HandlerGenerateShortUrl(w http.ResponseWriter, r *http.Request
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(h.baseUrl + "/" + shortUrl))
+	w.Header().Set("Content-Type", "application/json")
+	responseJson := ResponseShortUrl{ShortUrl: h.baseUrl + "/" + shortUrl}
+	if err = json.NewEncoder(w).Encode(responseJson); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h *Handler) HandlerGetOriginalUrl(w http.ResponseWriter, r *http.Request) {
@@ -72,5 +77,22 @@ func (h *Handler) HandlerGetOriginalUrl(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.WriteHeader(http.StatusAccepted)
-	w.Write([]byte(originalUrl))
+	w.Header().Set("Content-Type", "application/json")
+	responseJson := ResponseOriginalUrl{OriginalUrl: originalUrl}
+	if err = json.NewEncoder(w).Encode(responseJson); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+}
+
+type ResponseShortUrl struct {
+	ShortUrl string `json:"short_url"`
+}
+
+type ResponseOriginalUrl struct {
+	OriginalUrl string `json:"original_url"`
+}
+
+type RequestOriginalUrl struct {
+	OriginalUrl string `json:"original_url"`
 }

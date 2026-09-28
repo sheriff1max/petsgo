@@ -1,11 +1,11 @@
 package handler
 
 import (
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"encoding/json"
 
 	"short-urls/internal/service"
 	"short-urls/internal/storage/memory"
@@ -28,14 +28,21 @@ func TestHandlerGenerateShortUrlSuccess(t *testing.T) {
 	server, BaseURL := setupTestServer()
 	defer server.Close()
 
+	request := RequestOriginalUrl{OriginalUrl: "https://github.com"}
+	requestBody, _ := json.Marshal(request)
+
 	req, _ := http.NewRequest(
 		"POST",
 		server.URL + "/generate",
-		strings.NewReader("https://github.com"),
+		strings.NewReader(string(requestBody)),
 	)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	var responseJson ResponseShortUrl
+	if err := json.NewDecoder(resp.Body).Decode(&responseJson); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
 	}
 	defer resp.Body.Close()
 
@@ -43,9 +50,11 @@ func TestHandlerGenerateShortUrlSuccess(t *testing.T) {
 		t.Errorf("expected 201, got %d", resp.StatusCode)
 	}
 
-	body, _ := io.ReadAll(resp.Body)
-	if !strings.HasPrefix(string(body), BaseURL) {
-		t.Errorf("expected response to start with base URL, got %s", string(body))
+	if !strings.HasPrefix(responseJson.ShortUrl, BaseURL) {
+		t.Errorf(
+			"expected response to start with base URL, got %s",
+			responseJson.ShortUrl,
+		)
 	}
 }
 
@@ -53,10 +62,13 @@ func TestHandlerGenerateShortUrlEmptyBody(t *testing.T) {
 	server, _ := setupTestServer()
 	defer server.Close()
 
+	request := RequestOriginalUrl{OriginalUrl: ""}
+	requestBody, _ := json.Marshal(request)
+
 	req, _ := http.NewRequest(
 		"POST",
 		server.URL + "/generate",
-		strings.NewReader(""),
+		strings.NewReader(string(requestBody)),
 	)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -73,10 +85,13 @@ func TestHandlerGenerateShortUrlWhitespaceOnly(t *testing.T) {
 	server, _ := setupTestServer()
 	defer server.Close()
 
+	request := RequestOriginalUrl{OriginalUrl: "   \n\t  "}
+	requestBody, _ := json.Marshal(request)
+
 	req, _ := http.NewRequest(
 		"POST",
 		server.URL + "/generate",
-		strings.NewReader("   \n\t  "),
+		strings.NewReader(string(requestBody)),
 	)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -95,28 +110,37 @@ func TestHandlerGenerateShortUrlIdempotent(t *testing.T) {
 
 	url := "https://example.com/idempotent"
 
+	request := RequestOriginalUrl{OriginalUrl: url}
+	requestBody, _ := json.Marshal(request)
+
 	// Первый запрос
 	req1, _ := http.NewRequest(
 		"POST",
 		server.URL + "/generate",
-		strings.NewReader(url),
+		strings.NewReader(string(requestBody)),
 	)
 	resp1, _ := http.DefaultClient.Do(req1)
-	body1, _ := io.ReadAll(resp1.Body)
+	var response1 ResponseShortUrl
+	if err := json.NewDecoder(resp1.Body).Decode(&response1); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 	defer resp1.Body.Close()
 
 	// Второй запрос с тем же url
 	req2, _ := http.NewRequest(
 		"POST",
 		server.URL + "/generate",
-		strings.NewReader(url),
+		strings.NewReader(string(requestBody)),
 	)
 	resp2, _ := http.DefaultClient.Do(req2)
-	body2, _ := io.ReadAll(resp2.Body)
+	var response2 ResponseShortUrl
+	if err := json.NewDecoder(resp2.Body).Decode(&response2); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 	defer resp2.Body.Close()
 
-	if string(body1) != string(body2) {
-		t.Errorf("expected same response for same URL, got %s and %s", string(body1), string(body2))
+	if response1.ShortUrl != response2.ShortUrl {
+		t.Errorf("expected same response for same URL, got %s and %s", response1.ShortUrl, response2.ShortUrl)
 	}
 }
 
@@ -160,13 +184,14 @@ func TestFullPipeline(t *testing.T) {
 	server, _ := setupTestServer()
 	defer server.Close()
 
-	originalUrl := "https://github.com"
+	request := RequestOriginalUrl{OriginalUrl: "https://github.com"}
+	requestBody, _ := json.Marshal(request)
 
 	// post метод
 	req, _ := http.NewRequest(
 		"POST",
 		server.URL + "/generate",
-		strings.NewReader(originalUrl),
+		strings.NewReader(string(requestBody)),
 	)
 
 	response, err := http.DefaultClient.Do(req)
@@ -177,10 +202,13 @@ func TestFullPipeline(t *testing.T) {
 		t.Errorf("Waited status 201, but gor %d", response.StatusCode)
 	}
 
-	bytes, _ := io.ReadAll(response.Body)
+	var responseJson ResponseShortUrl
+	if err := json.NewDecoder(response.Body).Decode(&responseJson); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 	defer response.Body.Close()
 
-	shortUrl := string(bytes)
+	shortUrl := responseJson.ShortUrl
 	shortId := shortUrl[len(shortUrl)-service.LenghtShortUrl:]
 
 	// get метод
@@ -197,11 +225,14 @@ func TestFullPipeline(t *testing.T) {
 		t.Errorf("Waited status 202, but got %d", response.StatusCode)
 	}
 
-	bytes, _ = io.ReadAll(response.Body)
+	var responseJson2 ResponseOriginalUrl
+	if err := json.NewDecoder(response.Body).Decode(&responseJson2); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 	defer response.Body.Close()
 
-	sendedOriginalUrl := string(bytes)
-	if sendedOriginalUrl != originalUrl {
+	sendedOriginalUrl := responseJson2.OriginalUrl
+	if sendedOriginalUrl != request.OriginalUrl {
 		t.Errorf("Server bug when originalUrl saved incorrect")
 	}
 }
