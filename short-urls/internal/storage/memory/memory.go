@@ -1,6 +1,10 @@
-package storage
+package memory
 
-import "sync"
+import (
+	"sync"
+	"context"
+	"short-urls/internal/storage"
+)
 
 
 type MemoryStorage struct {
@@ -17,16 +21,16 @@ func NewMemoryStorage() *MemoryStorage {
 	}
 }
 
-func (m *MemoryStorage) Save(originalUrl, shortUrl string) error {
+func (m *MemoryStorage) Save(ctx context.Context, originalUrl, shortUrl string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if _, ok := m.origToShort[originalUrl]; ok {
-		return ErrUrlExists
+		return storage.ErrUrlExists
 	}
 
 	if _, ok := m.shortToOrigin[shortUrl]; ok {
-		return ErrUrlExists
+		return storage.ErrUrlExists
 	}
 
 	m.origToShort[originalUrl] = shortUrl
@@ -34,24 +38,24 @@ func (m *MemoryStorage) Save(originalUrl, shortUrl string) error {
 	return nil
 }
 
-func (m *MemoryStorage) GetOriginal(shortUrl string) (string, error) {
+func (m *MemoryStorage) GetOriginal(ctx context.Context, shortUrl string) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	
 	url, ok := m.shortToOrigin[shortUrl]
 	if !ok {
-		return "", ErrUrlNotFound
+		return "", storage.ErrUrlNotFound
 	}
 	return url, nil
 }
 
-func (m *MemoryStorage) GetShort(originalUrl string) (string, error) {
+func (m *MemoryStorage) GetShort(ctx context.Context, originalUrl string) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	
 	url, ok := m.origToShort[originalUrl]
 	if !ok {
-		return "", ErrUrlNotFound
+		return "", storage.ErrUrlNotFound
 	}
 	return url, nil
 }

@@ -3,13 +3,14 @@ package service
 import (
 	"math/rand"
 	"errors"
+	"context"
 
 	"short-urls/internal/storage"
 )
 
 
 const (
-	charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+	Charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
 	LenghtShortUrl = 10
 )
 
@@ -21,8 +22,8 @@ func NewService(storage storage.Storage) *Service {
 	return &Service{storage: storage}
 }
 
-func (s *Service) GenerateShortUrl(originalUrl string) (string, error) {
-	shortUrl, err := s.storage.GetShort(originalUrl)
+func (s *Service) GenerateShortUrl(ctx context.Context, originalUrl string) (string, error) {
+	shortUrl, err := s.storage.GetShort(ctx, originalUrl)
 	if err == nil {
 		return shortUrl, nil
 	}
@@ -33,13 +34,13 @@ func (s *Service) GenerateShortUrl(originalUrl string) (string, error) {
 	for {
 		shortUrl = generateRandomString(LenghtShortUrl)
 
-		err = s.storage.Save(originalUrl, shortUrl)
+		err = s.storage.Save(ctx, originalUrl, shortUrl)
 		if err == nil {
 			return shortUrl, nil
 		}
 
 		if errors.Is(err, storage.ErrUrlExists) {
-			shortUrl, err := s.storage.GetShort(originalUrl)
+			shortUrl, err := s.storage.GetShort(ctx, originalUrl)
 			if err == nil {
 				return shortUrl, nil
 			}
@@ -49,14 +50,14 @@ func (s *Service) GenerateShortUrl(originalUrl string) (string, error) {
 	}
 }
 
-func (s *Service) GetOriginalUrl(shortUrl string) (string, error) {
-	return s.storage.GetOriginal(shortUrl)
+func (s *Service) GetOriginalUrl(ctx context.Context, shortUrl string) (string, error) {
+	return s.storage.GetOriginal(ctx, shortUrl)
 }
 
 func generateRandomString(lenght int) string {
 	bytes := make([]byte, lenght)
 	for i := range bytes {
-		bytes[i] = charset[rand.Intn(len(charset))]
+		bytes[i] = Charset[rand.Intn(len(Charset))]
 	}
 	return string(bytes)
 }

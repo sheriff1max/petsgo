@@ -26,6 +26,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 }
 
 func (h *Handler) HandlerGenerateShortUrl(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	
 	bytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -39,7 +41,7 @@ func (h *Handler) HandlerGenerateShortUrl(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	shortUrl, err := h.service.GenerateShortUrl(originalUrl)
+	shortUrl, err := h.service.GenerateShortUrl(ctx, originalUrl)
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
@@ -50,16 +52,18 @@ func (h *Handler) HandlerGenerateShortUrl(w http.ResponseWriter, r *http.Request
 }
 
 func (h *Handler) HandlerGetOriginalUrl(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()	
+
 	shortUrl := strings.TrimPrefix(r.URL.Path, "/")
 	if shortUrl == "" {
 		http.Error(w, "ShortUrl should not empty", http.StatusBadRequest)
 		return
 	}
 
-	originalUrl, err := h.service.GetOriginalUrl(shortUrl)
+	originalUrl, err := h.service.GetOriginalUrl(ctx, shortUrl)
 	if err != nil {
 		if errors.Is(err, storage.ErrUrlNotFound) {
-			http.Error(w, "ShoUrl not found", http.StatusNotFound)
+			http.Error(w, "ShortUrl not found", http.StatusNotFound)
 			return	
 		}
 

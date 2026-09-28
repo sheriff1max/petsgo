@@ -12,11 +12,17 @@ import (
 	"short-urls/internal/config"
 	"short-urls/internal/handler"
 	"short-urls/internal/service"
+
 	"short-urls/internal/storage"
+	"short-urls/internal/storage/memory"
+	"short-urls/internal/storage/postgres"
 )
 
 func main() {
 	cfg := config.Load()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	var (
 		store storage.Storage
@@ -25,22 +31,15 @@ func main() {
 
 	switch cfg.StorageType {
 	case "memory":
-		store = storage.NewMemoryStorage()
-		log.Println("Memory storage starts")
+		store = memory.NewMemoryStorage()
+		log.Println("Local-memory storage starts")
 	case "postgres":
-
-		countAtemps := 5
-		for i := 1; i <= countAtemps; i++ {
-			store, err = storage.NewPostgresStorage(cfg.PostgresDSN)
-			if err == nil {
-				break
-			}
-			log.Printf(
-				"Postgres not connected (%d/%d) with error: %v",
-				i, countAtemps, err,
-			)
-			time.Sleep(2 * time.Second)
-		}
+		store, err = retryPostgresConnection(
+			ctx,
+			cfg.PostgresDSN,
+			5,
+			2 * time.Second,
+		)
 		if err != nil {
 			log.Fatalf("Postgres storage error: %v", err)
 		}
@@ -73,11 +72,33 @@ func main() {
 	<-quit
 	log.Println("Server starts shutdown")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
-	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
+	shutdownCtx, shutdownCancel := context.WithTimeout(
+		context.Background(),
+		5 * time.Second,
+	)
+	defer shutdownCancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Printf("Server forced to shutdown: %v", err)
 	}
 
 	log.Println("Server stops.")
+}
+
+func retryPostgresConnection(ctx context.Context, dsn string, attempts int, delay time.Duration) (storage.Storage, error) {
+	var store storage.Storage
+	var err error
+
+	for i := 1; i <= attempts; i++ {
+		store, err = postgres.NewPostgresStorage(ctx, dsn)
+		if err == nil {
+			break
+		}
+		log.Printf(
+			"Postgres not connected (%d/%d) with error: %v",
+			i, attempts, err,
+		)
+		time.Sleep(delay)
+	}
+	return store, err
 }

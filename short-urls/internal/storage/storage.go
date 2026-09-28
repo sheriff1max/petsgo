@@ -1,6 +1,9 @@
 package storage
 
-import "errors"
+import (
+	"errors"
+	"context"
+)
 
 var (
 	ErrUrlNotFound = errors.New("URL not found")
@@ -8,8 +11,8 @@ var (
 )
 
 type Storage interface {
-	Save(originalUrl, shortUrl string) error
-	GetOriginal(shortUrl string) (string, error)
-	GetShort(originalUrl string) (string, error)
+	Save(ctx context.Context, originalUrl, shortUrl string) error
+	GetOriginal(ctx context.Context, shortUrl string) (string, error)
+	GetShort(ctx context.Context, originalUrl string) (string, error)
 	Close() error
 }

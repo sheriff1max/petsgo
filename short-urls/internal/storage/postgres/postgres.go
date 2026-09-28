@@ -1,4 +1,4 @@
-package storage
+package postgres
 
 import (
 	"context"
@@ -7,19 +7,21 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"short-urls/internal/storage"
 )
 
 type PostgresStorage struct {
 	pool *pgxpool.Pool
 }
 
-func NewPostgresStorage(dsn string) (*PostgresStorage, error) {
-	pool, err := pgxpool.New(context.Background(), dsn)
+func NewPostgresStorage(ctx context.Context, dsn string) (*PostgresStorage, error) {
+	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = pool.Exec(context.Background(), `
+	_, err = pool.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS urls (
 			short_url VARCHAR(10) PRIMARY KEY,
 			original_url TEXT NOT NULL UNIQUE
@@ -32,9 +34,9 @@ func NewPostgresStorage(dsn string) (*PostgresStorage, error) {
 	return &PostgresStorage{pool: pool}, nil
 }
 
-func (p *PostgresStorage) Save(originalUrl, shortUrl string) error {
+func (p *PostgresStorage) Save(ctx context.Context, originalUrl, shortUrl string) error {
 	_, err := p.pool.Exec(
-		context.Background(),
+		ctx,
 		`INSERT INTO urls (short_url, original_url) VALUES ($1, $2)`,
 		shortUrl,
 		originalUrl,
@@ -42,16 +44,16 @@ func (p *PostgresStorage) Save(originalUrl, shortUrl string) error {
 
 	if err != nil {
 		if isUniqueError(err) {
-			return ErrUrlExists
+			return storage.ErrUrlExists
 		}
 		return err
 	}
 	return nil
 }
 
-func (p *PostgresStorage) GetOriginal(shortUrl string) (string, error) {
+func (p *PostgresStorage) GetOriginal(ctx context.Context, shortUrl string) (string, error) {
 	row := p.pool.QueryRow(
-		context.Background(),
+		ctx,
 		`SELECT original_url FROM urls WHERE short_url = $1`,
 		shortUrl,
 	)
@@ -60,16 +62,16 @@ func (p *PostgresStorage) GetOriginal(shortUrl string) (string, error) {
 	err := row.Scan(&url)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", ErrUrlNotFound
+			return "", storage.ErrUrlNotFound
 		}
 		return "", err
 	}
 	return url, nil
 }
 
-func (p *PostgresStorage) GetShort(originalUrl string) (string, error) {
+func (p *PostgresStorage) GetShort(ctx context.Context, originalUrl string) (string, error) {
 	row := p.pool.QueryRow(
-		context.Background(),
+		ctx,
 		`SELECT short_url FROM urls WHERE original_url = $1`,
 		originalUrl,
 	)
@@ -78,7 +80,7 @@ func (p *PostgresStorage) GetShort(originalUrl string) (string, error) {
 	err := row.Scan(&url)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", ErrUrlNotFound
+			return "", storage.ErrUrlNotFound
 		}
 		return "", err
 	}
