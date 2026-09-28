@@ -7,14 +7,17 @@ import (
 	"strings"
 	"testing"
 
+	"short-urls/internal/config"
 	"short-urls/internal/service"
 	"short-urls/internal/storage"
 )
 
 func TestGenerateShortUrlAndGetOriginalUrl(t *testing.T) {
-	memStorage := storage.NewMemoryStorage()
-	svc := service.NewService(memStorage)
-	handler := NewHandler(svc, "http://localhost:8080")
+	cfg := config.Load()
+
+	store := storage.NewMemoryStorage()
+	svc := service.NewService(store)
+	handler := NewHandler(svc, cfg.BaseURL)
 
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
