@@ -93,9 +93,9 @@ go run ./cmd/short-urls -s postgres
 
 Пример `POST`-запроса:
 - http://localhost:8080/generate
-- в `Body` кладётся текст с ссылкой, например, **https://github.com**
-- Возвращает текст с сокращённой ссылкой, например, **http://localhost:8080/dqyN6V3ZTs**
+- в `Body` кладётся JSON: {"original_url": "https://github.com"}
+- Возвращает JSON с сокращённой ссылкой, например, {"short_url": "http://localhost:8080/dqyN6V3ZTs"}
 
 Пример `GET`-запроса:
 - http://localhost:8080/dqyN6V3ZTs - ссылка, полученная из ответа `POST`-запроса
-- Возвращает текст с сокращённой ссылкой, например, **https://github.com**
+- Возвращает JSON с сокращённой ссылкой, например, {"original_url": "https://github.com"}
