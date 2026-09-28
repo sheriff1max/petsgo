@@ -9,6 +9,7 @@ type Config struct {
 	Addr string
 	StorageType string
 	PostgresDSN string
+	BaseURL string
 }
 
 func Load() *Config {
@@ -29,8 +30,14 @@ func Load() *Config {
 	flag.StringVar(
 		&cfg.PostgresDSN,
 		"d",
-		getEnv("POSTGRES_DSN", "postgres://user:pass@localhost:5432/shortener?sslmode=disable"),
+		getEnv("POSTGRES_DSN", "postgres://user:pass@localhost:5432/shorturls?sslmode=disable"),
 		"PostgreSQL DSN",
+	)
+	flag.StringVar(
+		&cfg.BaseURL,
+		"b",
+		getEnv("BASE_URL", "http://localhost:8080"),
+		"Base URL",
 	)
 
 	flag.Parse()

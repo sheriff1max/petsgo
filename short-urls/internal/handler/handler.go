@@ -1,9 +1,9 @@
 package handler
 
 import (
-	"net/http"
 	"errors"
 	"io"
+	"net/http"
 	"strings"
 
 	"short-urls/internal/service"
@@ -12,10 +12,12 @@ import (
 
 type Handler struct {
 	service *service.Service
+	baseUrl string
 }
 
-func NewHandler(service *service.Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(service *service.Service, baseUrl string) *Handler {
+	baseUrl = strings.TrimRight(baseUrl, "/")
+	return &Handler{service: service, baseUrl: baseUrl}
 }
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
@@ -44,7 +46,7 @@ func (h *Handler) HandlerGenerateShortUrl(w http.ResponseWriter, r *http.Request
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("http://localhost:8080/" + shortUrl))
+	w.Write([]byte(h.baseUrl + "/" + shortUrl))
 }
 
 func (h *Handler) HandlerGetOriginalUrl(w http.ResponseWriter, r *http.Request) {

@@ -22,10 +22,9 @@ func NewService(storage storage.Storage) *Service {
 }
 
 func (s *Service) GenerateShortUrl(originalUrl string) (string, error) {
-
 	shortUrl, err := s.storage.GetShort(originalUrl)
 	if err == nil {
-		return  shortUrl, nil
+		return shortUrl, nil
 	}
 	if !errors.Is(err, storage.ErrUrlNotFound) {
 		return "", err
@@ -39,9 +38,14 @@ func (s *Service) GenerateShortUrl(originalUrl string) (string, error) {
 			return shortUrl, nil
 		}
 
-		if !errors.Is(err, storage.ErrUrlExists) {
-			return "", err
+		if errors.Is(err, storage.ErrUrlExists) {
+			shortUrl, err := s.storage.GetShort(originalUrl)
+			if err == nil {
+				return shortUrl, nil
+			}
+			continue
 		}
+		return "", err
 	}
 }
 

@@ -14,7 +14,7 @@ import (
 func TestGenerateShortUrlAndGetOriginalUrl(t *testing.T) {
 	memStorage := storage.NewMemoryStorage()
 	svc := service.NewService(memStorage)
-	handler := NewHandler(svc)
+	handler := NewHandler(svc, "http://localhost:8080")
 
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
